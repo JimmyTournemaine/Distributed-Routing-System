@@ -179,6 +179,7 @@ PROC terminal (VAL INT id, CHAN OF PAQUET in, CHAN OF PAQUET out, CHAN OF AFFPAQ
 PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF AFFPAQUET paqScreen)
   [maxVois]PAQUET paqIn:
   PAQUET paqOut:
+  [3][2]BOOL paqRecu:
   AFFPAQUET aff:
   BOOL updated:
   INT cycle,port:
@@ -187,6 +188,9 @@ PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF A
     paqOut[source] := null
     aff[comp] := ROUTEUR
     aff[id] := id
+    SEQ i=0 FOR SIZE paqRecu
+      SEQ j=0 FOR SIZE paqRecu[i]
+        paqRecu[i][j] := FALSE
     cycle := 1
     
     WHILE TRUE
@@ -198,36 +202,36 @@ PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF A
           PAR i=0 FOR SIZE out
             out[i] ! paqOut
             
-        -- Retransmission du paquet non nul
+        -- Retransmission du paquet non nul si pas encore recu
         updated := FALSE
         SEQ i=0 FOR SIZE in
           IF
-            paqIn[i][source] <> null
+            (paqIn[i][source] <> null) AND (paqRecu[paqIn[i][source]][paqIn[i][num]] = FALSE)
               SEQ
                 paqOut := paqIn[i]
                 updated := TRUE
-                port := i
+                paqRecu[paqIn[i][source]][paqIn[i][num]] := TRUE
+                
+                -- Affichage de la reception
+                aff[evt] := Recept
+                aff[time] := cycle
+                aff[port] := i
+                aff[paquet] := paqIn[i]
+                paqScreen ! aff
             TRUE
               SKIP
               
-        -- Réinit si tous null sinon affichage du paquet recu
+        -- Reinit si tous null sinon affichage du paquet recu
         IF
           updated = FALSE
             paqOut[source] := null
           updated = TRUE
             SEQ
-              -- Reception
-              aff[evt] := Recept
-              aff[time] := cycle
-              aff[port] := port
-              aff[paquet] := paqIn[port]
-              paqScreen ! aff
-              
               -- Envoi au prochain tour
               aff[evt] := Envoi
               aff[time] := cycle+1
               aff[port] := 0
-              aff[paquet] := paqIn[port]
+              aff[paquet] := paqOut
               paqScreen ! aff
         
         cycle := cycle + 1
@@ -274,10 +278,10 @@ PROC reseau(CHAN OF BYTE keyboard,screen,error)
     --exemple
     --paquet envoye du terminal 1 a destination du terminal 2 au cycle 20
     creation[1][0][dest] := 2
-    creation[1][0][time] := 2000
+    creation[1][0][time] := 20
     --paquet envoye du terminal 1 a destination du terminal 0 au cycle 40
     creation[1][1][dest] := 0
-    creation[1][1][time] := 4000
+    creation[1][1][time] := 40
     
     PAR
       muxAff(paqScreen,screen)
