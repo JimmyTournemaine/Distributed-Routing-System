@@ -41,7 +41,9 @@ DATA TYPE AFFPAQUET
 --definition de la procedure pour le multiplexage de l'impression
 PROC muxAff([] CHAN OF  AFFPAQUET paquetScreens, CHAN OF BYTE screen)
   AFFPAQUET affpaq:
+  INT cpt:
   SEQ
+    cpt := 0
     WHILE TRUE
       ALT i=0 FOR SIZE paquetScreens
         paquetScreens[i] ? affpaq
@@ -62,7 +64,11 @@ PROC muxAff([] CHAN OF  AFFPAQUET paquetScreens, CHAN OF BYTE screen)
               Creation
                 out.string ("|  creation de paquet           |*n",0, screen)    
               Envoi
-                out.string ("|    envoi de paquet            |*n",0, screen) 
+                SEQ
+                  cpt := cpt + 1
+                  out.string ("|    envoi #",0, screen)
+                  out.number (cpt, 2, screen)
+                  out.string (" de paquet            |*n",0, screen)
               Recept
                 out.string ("| reception de paquet           |*n",0, screen)      
               Arrive
@@ -231,7 +237,7 @@ PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF A
               aff[evt] := Envoi
               aff[time] := cycle+1
               aff[port] := 0
-              aff[paquet] := paqOut
+              aff[paquet] := paqIn[port]
               paqScreen ! aff
         
         cycle := cycle + 1
@@ -280,8 +286,8 @@ PROC reseau(CHAN OF BYTE keyboard,screen,error)
     creation[1][0][dest] := 2
     creation[1][0][time] := 20
     --paquet envoye du terminal 1 a destination du terminal 0 au cycle 40
-    creation[1][1][dest] := 0
-    creation[1][1][time] := 40
+    --creation[1][1][dest] := 0
+    --creation[1][1][time] := 40
     
     PAR
       muxAff(paqScreen,screen)
