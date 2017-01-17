@@ -286,8 +286,11 @@ PROC reseau(CHAN OF BYTE keyboard,screen,error)
     creation[1][0][dest] := 2
     creation[1][0][time] := 20
     --paquet envoye du terminal 1 a destination du terminal 0 au cycle 40
-    --creation[1][1][dest] := 0
-    --creation[1][1][time] := 40
+    creation[1][1][dest] := 0
+    creation[1][1][time] := 40
+    --paquet envoye du terminal 2 a destination du terminal 0 au cycle 60
+    creation[2][0][dest] := 0
+    creation[2][0][time] := 60
     
     PAR
       muxAff(paqScreen,screen)
