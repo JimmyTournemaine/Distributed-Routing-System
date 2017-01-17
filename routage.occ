@@ -185,7 +185,8 @@ PROC terminal (VAL INT id, CHAN OF PAQUET in, CHAN OF PAQUET out, CHAN OF AFFPAQ
 PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF AFFPAQUET paqScreen)
   [maxVois]PAQUET paqIn:
   [maxVois]PAQUET paqOut:
-  [3][2]BOOL paqRecu:
+  [3][2]INT paqRecu:
+  [3][maxVois]BOOL frere:
   [maxVois]BOOL dejaRecu:
   AFFPAQUET aff:
   BOOL updated:
@@ -198,7 +199,10 @@ PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF A
     aff[id] := id
     SEQ i=0 FOR SIZE paqRecu
       SEQ j=0 FOR SIZE paqRecu[i]
-        paqRecu[i][j] := FALSE
+        paqRecu[i][j] := 0
+    SEQ i=0 FOR SIZE frere
+      SEQ j=0 FOR SIZE frere[i]
+        frere[i][j] := FALSE
     SEQ i=0 FOR SIZE dejaRecu
       dejaRecu[i] := FALSE
     cycle := 1
@@ -216,13 +220,18 @@ PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF A
         updated := FALSE
         SEQ i=0 FOR SIZE in
           IF
-            (paqIn[i][source] <> null) AND (paqRecu[paqIn[i][source]][paqIn[i][num]] = FALSE)
+            (paqIn[i][source] <> null) AND (paqRecu[paqIn[i][source]][paqIn[i][num]] = 0)
               SEQ
                 SEQ j=0 FOR SIZE out
-                  paqOut[j] := paqIn[i]
+                  IF
+                    -- On n'envoie pas au freres
+                    frere[paqIn[i][source]][j] = TRUE
+                      paqOut[j][source] := null
+                    TRUE
+                      paqOut[j] := paqIn[i]
                 updated := TRUE
                 dejaRecu[i] := TRUE
-                paqRecu[paqIn[i][source]][paqIn[i][num]] := TRUE
+                paqRecu[paqIn[i][source]][paqIn[i][num]] := cycle
                 
                 -- Affichage de la reception
                 aff[evt] := Recept
@@ -230,6 +239,9 @@ PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF A
                 aff[port] := i
                 aff[paquet] := paqIn[i]
                 paqScreen ! aff
+            -- Si deja reçu mais a T+1 => frere
+            (paqIn[i][source] <> null) AND (paqRecu[paqIn[i][source]][paqIn[i][num]] = (cycle + 1))
+              frere[paqIn[i][source]][i] := TRUE
             TRUE
               SKIP
               
@@ -238,7 +250,7 @@ PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF A
           IF
             (dejaRecu[i] = TRUE) OR (updated = FALSE)
               paqOut[i][source] := null
-            TRUE
+            paqOut[i][source] <> null -- les freres sont deja a null
               SEQ
                 -- Envoi au prochain tour
                 aff[evt] := Envoi
@@ -246,7 +258,8 @@ PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF A
                 aff[port] := 0
                 aff[paquet] := paqOut[i]
                 paqScreen ! aff
-        
+            TRUE
+              SKIP
         cycle := cycle + 1
 : 
 
@@ -295,9 +308,6 @@ PROC reseau(CHAN OF BYTE keyboard,screen,error)
     --paquet envoye du terminal 1 a destination du terminal 0 au cycle 40
     creation[1][1][dest] := 0
     creation[1][1][time] := 40
-    --paquet envoye du terminal 2 a destination du terminal 0 au cycle 60
-    creation[2][0][dest] := 0
-    creation[2][0][time] := 60
     
     PAR
       muxAff(paqScreen,screen)
