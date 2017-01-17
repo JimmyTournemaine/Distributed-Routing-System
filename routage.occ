@@ -184,19 +184,23 @@ PROC terminal (VAL INT id, CHAN OF PAQUET in, CHAN OF PAQUET out, CHAN OF AFFPAQ
 -- Procedure définissant un routeur
 PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF AFFPAQUET paqScreen)
   [maxVois]PAQUET paqIn:
-  PAQUET paqOut:
+  [maxVois]PAQUET paqOut:
   [3][2]BOOL paqRecu:
+  [maxVois]BOOL dejaRecu:
   AFFPAQUET aff:
   BOOL updated:
   INT cycle,port:
   SEQ
     -- Initialisation
-    paqOut[source] := null
+    SEQ i=0 FOR SIZE out
+      paqOut[i][source] := null
     aff[comp] := ROUTEUR
     aff[id] := id
     SEQ i=0 FOR SIZE paqRecu
       SEQ j=0 FOR SIZE paqRecu[i]
         paqRecu[i][j] := FALSE
+    SEQ i=0 FOR SIZE dejaRecu
+      dejaRecu[i] := FALSE
     cycle := 1
     
     WHILE TRUE
@@ -206,7 +210,7 @@ PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF A
           PAR i=0 FOR SIZE in
             in[i] ? paqIn[i]
           PAR i=0 FOR SIZE out
-            out[i] ! paqOut
+            out[i] ! paqOut[i]
             
         -- Retransmission du paquet non nul si pas encore recu
         updated := FALSE
@@ -214,8 +218,10 @@ PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF A
           IF
             (paqIn[i][source] <> null) AND (paqRecu[paqIn[i][source]][paqIn[i][num]] = FALSE)
               SEQ
-                paqOut := paqIn[i]
+                SEQ j=0 FOR SIZE out
+                  paqOut[j] := paqIn[i]
                 updated := TRUE
+                dejaRecu[i] := TRUE
                 paqRecu[paqIn[i][source]][paqIn[i][num]] := TRUE
                 
                 -- Affichage de la reception
@@ -228,17 +234,18 @@ PROC routeur (VAL INT id, [] CHAN OF PAQUET in, [] CHAN OF PAQUET out, CHAN OF A
               SKIP
               
         -- Reinit si tous null sinon affichage du paquet recu
-        IF
-          updated = FALSE
-            paqOut[source] := null
-          updated = TRUE
-            SEQ
-              -- Envoi au prochain tour
-              aff[evt] := Envoi
-              aff[time] := cycle+1
-              aff[port] := 0
-              aff[paquet] := paqIn[port]
-              paqScreen ! aff
+        SEQ i=0 FOR SIZE out
+          IF
+            (dejaRecu[i] = TRUE) OR (updated = FALSE)
+              paqOut[i][source] := null
+            TRUE
+              SEQ
+                -- Envoi au prochain tour
+                aff[evt] := Envoi
+                aff[time] := cycle+1
+                aff[port] := 0
+                aff[paquet] := paqOut[i]
+                paqScreen ! aff
         
         cycle := cycle + 1
 : 
